@@ -1,0 +1,1 @@
+{"name":"심사조서검색","short_name":"심사조서","description":"CSV 데이터를 기기에 저장하고 오프라인으로 검색하는 PWA","start_url":"/nolbu1/","display":"standalone","background_color":"#ffffff","theme_color":"#1a1a2e","lang":"en","scope":"/nolbu1/","orientation":"any","icons":[{"src":"favicon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}
