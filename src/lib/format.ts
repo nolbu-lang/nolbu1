@@ -34,7 +34,8 @@ export function formatAmountWithSource(
 ): string {
   if (total == null && !hasSource) return '-'
   const base = total == null ? '0백만원' : `${total.toLocaleString('ko-KR')}백만원`
-  if (!hasSource) return base
+  const showSource = hasSource && (국비 != null || 시비 != null)
+  if (!showSource) return base
   const 국 = (국비 ?? 0).toLocaleString('ko-KR')
   const 시 = (시비 ?? 0).toLocaleString('ko-KR')
   return `${base} (국비 ${국}, 시비 ${시})`
