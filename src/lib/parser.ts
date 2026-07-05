@@ -96,25 +96,106 @@ function baseRecord(meta: Meta): ProjectRecord {
 }
 
 // ---------- 경상사업 (10열, 단위: 천원) ----------
+
+function isGyeongsangDeptHeader(c0: string): '과' | '상위' | null {
+  const hasSpace = /\s/.test(c0)
+  if (!hasSpace && /(과|담당관)$/.test(c0)) return '과'
+  if (!hasSpace && /(국|실|본부|처|위원회|청|관|원|센터|사업소|단)$/.test(c0)) return '상위'
+  return null
+}
+
+function gyeongsangNameFromCell(c1raw: string): string {
+  return String(c1raw ?? '').split('\n')[0].replace(/\s+/g, ' ').trim()
+}
+
+function sameBudgetRow(reqA: string, adjA: string, reqB: string, adjB: string): boolean {
+  const norm = (v: string) => String(v ?? '').replace(/\s/g, '')
+  return norm(reqA) === norm(reqB) && norm(adjA) === norm(adjB)
+}
+
+/** 정책사업(program)과 세부 항목명을 합쳐 사업명을 만든다. */
+function buildGyeongsangName(program: string, name: string): string {
+  const n = name.trim()
+  const p = program.trim()
+  if (!n) return p
+  if (!p || n === p || n.includes(p)) return n
+  if (/^[(\（·★-]/.test(n)) return p
+  const compact = n.replace(/\s/g, '')
+  const isShort = compact.length <= 12
+  const isRankLike = /^[\d~０-９]+급$/.test(compact) || /^(시장|위원장|사무국장)$/.test(n)
+  if (p === '기본경비' || p === '기관운영' || isShort || isRankLike) return `${p}(${n})`
+  return n
+}
+
 function parseGyeongsang(rows: Row[], meta: Meta): ProjectRecord[] {
   const records: ProjectRecord[] = []
   let 상위부서 = ''
   let 하위부서 = ''
   let program = ''
-  let cur: (ProjectRecord & { _ov: string[]; _rv: string[]; _kw: string[] }) | null = null
+  let pendingC0: {
+    name: string
+    req: string
+    adj: string
+    요구액: number | null
+    조정액: number | null
+  } | null = null
+  type GyeongsangCur = ProjectRecord & { _ov: string[]; _rv: string[]; _kw: string[] }
+  const state: { cur: GyeongsangCur | null } = { cur: null }
+
+  const flushPendingC0 = () => {
+    if (!pendingC0) return
+    records.push({
+      ...baseRecord(meta),
+      부서명: 하위부서 || 상위부서,
+      정책사업: program,
+      사업명: pendingC0.name,
+      요구액: pendingC0.요구액,
+      조정액: pendingC0.조정액,
+    })
+    pendingC0 = null
+  }
 
   const flush = () => {
-    if (!cur) return
-    cur.사업개요 = cur._ov.join('\n')
-    cur.검토내용 = collapseBlankLines(cur._rv.join('\n'))
-    cur.조건검색어 = cur._kw.join(' ').replace(/\s+/g, ' ').trim()
+    if (!state.cur) return
+    state.cur.사업개요 = state.cur._ov.join('\n')
+    state.cur.검토내용 = collapseBlankLines(state.cur._rv.join('\n'))
+    state.cur.조건검색어 = state.cur._kw.join(' ').replace(/\s+/g, ' ').trim()
 
-    const { _ov, _rv, _kw, ...record } = cur
+    const { _ov, _rv, _kw, ...record } = state.cur
     void _ov
     void _rv
     void _kw
     records.push(record)
-    cur = null
+    state.cur = null
+  }
+
+  const beginProject = (
+    name: string,
+    req: string,
+    adj: string,
+    tong: string,
+    review: string,
+    keyword: string,
+  ) => {
+    flush()
+    state.cur = {
+      ...baseRecord(meta),
+      부서명: 하위부서 || 상위부서,
+      정책사업: program,
+      사업명: name,
+      통계목: tong,
+      요구액: parseAmount(req, true),
+      조정액: parseAmount(adj, true),
+      _ov: [],
+      _rv: [],
+      _kw: [],
+    }
+    pushLine(state.cur._rv, review)
+    pushLine(state.cur._kw, keyword)
+  }
+
+  const clearPendingC0 = () => {
+    pendingC0 = null
   }
 
   for (let i = 5; i < rows.length; i++) {
@@ -134,47 +215,57 @@ function parseGyeongsang(rows: Row[], meta: Meta): ProjectRecord[] {
 
     if (c0) {
       flush()
-      const hasSpace = /\s/.test(c0)
-      if (!hasSpace && /(과|담당관)$/.test(c0)) {
-        하위부서 = c0
-      } else if (!hasSpace && /(국|실|본부|처|위원회|청|관|원|센터|사업소|단)$/.test(c0)) {
-        상위부서 = c0
-        하위부서 = ''
+      flushPendingC0()
+
+      if (rowHasBudget) {
+        const deptType = isGyeongsangDeptHeader(c0)
+        if (deptType) {
+          if (deptType === '과') 하위부서 = c0
+          else {
+            상위부서 = c0
+            하위부서 = ''
+          }
+        } else {
+          program = c0
+          pendingC0 = {
+            name: c0,
+            req,
+            adj,
+            요구액: parseAmount(req, true),
+            조정액: parseAmount(adj, true),
+          }
+        }
       } else {
-        program = c0
+        const deptType = isGyeongsangDeptHeader(c0)
+        if (deptType === '과') {
+          하위부서 = c0
+        } else if (deptType === '상위') {
+          상위부서 = c0
+          하위부서 = ''
+        } else {
+          program = c0
+        }
       }
-      continue
-    }
-
-    if (c1 && rowHasBudget) {
-      flush()
-      cur = {
-        ...baseRecord(meta),
-        // 경상사업은 '과'만 표시한다. '과'가 없으면 상위부서로 대체(빈 값 방지).
-        부서명: 하위부서 || 상위부서,
-        정책사업: program,
-        사업명: c1,
-        통계목: tong,
-        요구액: parseAmount(req, true),
-        조정액: parseAmount(adj, true),
-        _ov: [],
-        _rv: [],
-        _kw: [],
+    } else if (c1 && rowHasBudget) {
+      let name = gyeongsangNameFromCell(c1raw)
+      if (pendingC0 && sameBudgetRow(pendingC0.req, pendingC0.adj, req, adj)) {
+        name = pendingC0.name
+        clearPendingC0()
+      } else {
+        clearPendingC0()
+        name = buildGyeongsangName(program, name)
       }
-      pushLine(cur._rv, review)
-      pushLine(cur._kw, keyword)
-      continue
-    }
-
-    if (cur) {
+      beginProject(name, req, adj, tong, review, keyword)
+    } else if (state.cur) {
       if (c1raw && c1 !== 상위부서 && c1 !== 하위부서 && c1 !== program) {
-        pushLine(cur._ov, c1raw)
+        pushLine(state.cur._ov, c1raw)
       }
-      pushLine(cur._rv, review)
-      pushLine(cur._kw, keyword)
+      pushLine(state.cur._rv, review)
+      pushLine(state.cur._kw, keyword)
     }
   }
   flush()
+  flushPendingC0()
   return records
 }
 

@@ -15,10 +15,10 @@ export function ResultsTable({ results, query, onSelect }: ResultsTableProps) {
         <thead>
           <tr>
             <th className="col-type">유형</th>
-            <th className="col-dept">부서명</th>
             <th className="col-name">사업명</th>
             <th className="col-num">요구액</th>
             <th className="col-num">조정액</th>
+            <th className="col-dept">부서명</th>
           </tr>
         </thead>
         <tbody>
@@ -35,10 +35,6 @@ export function ResultsTable({ results, query, onSelect }: ResultsTableProps) {
                   {record.사업유형 || record.type.replace('사업', '')}
                 </span>
               </td>
-              <td
-                className="col-dept"
-                dangerouslySetInnerHTML={{ __html: highlight(record.부서명, query.부서명) }}
-              />
               <td className="col-name">
                 <span className="cell-name">
                   <span
@@ -49,6 +45,10 @@ export function ResultsTable({ results, query, onSelect }: ResultsTableProps) {
               </td>
               <td className="col-num">{formatAmount(record.요구액)}</td>
               <td className="col-num">{formatAmount(record.조정액)}</td>
+              <td
+                className="col-dept"
+                dangerouslySetInnerHTML={{ __html: highlight(record.부서명, query.부서명) }}
+              />
             </tr>
           ))}
         </tbody>

@@ -230,6 +230,61 @@
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   color: var(--text);
+  width: 72px;
+}
+
+@media (max-width: 767px) {
+  .table-scroll {
+    overflow-x: visible;
+  }
+
+  .results-table {
+    table-layout: fixed;
+    font-size: 0.82rem;
+  }
+
+  .results-table thead th,
+  .results-table td {
+    padding: 8px 6px;
+  }
+
+  .col-type {
+    width: 52px;
+  }
+
+  .col-name {
+    min-width: 0;
+    width: auto;
+  }
+
+  .col-num {
+    width: 58px;
+    font-size: 0.78rem;
+  }
+
+  .col-dept {
+    display: none;
+  }
+
+  .type-line {
+    font-size: 0.68rem;
+  }
+
+  .badge {
+    padding: 1px 5px;
+    font-size: 0.68rem;
+  }
+
+  .cell-name {
+    font-size: 0.84rem;
+    line-height: 1.35;
+  }
+
+  .cell-tong {
+    display: block;
+    margin-left: 0;
+    margin-top: 2px;
+  }
 }
 
 .cell-name {
