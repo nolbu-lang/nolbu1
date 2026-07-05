@@ -22,6 +22,12 @@ export function formatAmount(value: number | null): string {
   return `${value.toLocaleString('ko-KR')}백만원`
 }
 
+/** 표 목록용 금액(숫자만). 값이 없으면 '-' */
+export function formatTableAmount(value: number | null): string {
+  if (value == null) return '-'
+  return value.toLocaleString('ko-KR')
+}
+
 /**
  * 요구액/조정액을 "000백만원(국비000, 시비000)" 형태로 표시한다.
  * 재원 내역(국비/시비)이 있으면 괄호로 함께 표기한다.

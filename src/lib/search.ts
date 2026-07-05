@@ -1,9 +1,31 @@
 import { SEARCH_BOXES } from '../types'
-import type { ProjectRecord, SearchQuery } from '../types'
+import type { ProjectRecord, SearchQuery, SearchableField } from '../types'
 
 /** 띄어쓰기 제거 + 소문자 정규화 (영어 대소문자·공백 무시 검색용) */
-function normalize(value: string): string {
+export function normalize(value: string): string {
   return value.replace(/\s+/g, '').toLowerCase()
+}
+
+export function attachSearchNorms(record: ProjectRecord): ProjectRecord {
+  if (record._norm) return record
+  const norm = (value: string) => normalize(String(value ?? ''))
+  return {
+    ...record,
+    _norm: {
+      부서명: norm(record.부서명),
+      사업명: norm(record.사업명),
+      사업개요: norm(record.사업개요),
+      조건검색어: norm(record.조건검색어),
+    },
+  }
+}
+
+export function attachSearchNormsAll(records: ProjectRecord[]): ProjectRecord[] {
+  return records.map(attachSearchNorms)
+}
+
+function normalizedField(record: ProjectRecord, field: SearchableField): string {
+  return record._norm?.[field] ?? normalize(String(record[field] ?? ''))
 }
 
 export function hasQuery(query: SearchQuery): boolean {
@@ -28,9 +50,13 @@ export function searchProjects(
   let total = 0
 
   for (const record of records) {
-    const matched = active.every(({ field, needle }) =>
-      normalize(String(record[field] ?? '')).includes(needle),
-    )
+    let matched = true
+    for (const { field, needle } of active) {
+      if (!normalizedField(record, field as SearchableField).includes(needle)) {
+        matched = false
+        break
+      }
+    }
     if (matched) {
       total += 1
       if (results.length < limit) {

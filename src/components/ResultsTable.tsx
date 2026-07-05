@@ -1,4 +1,4 @@
-import { formatAmount, typeShort } from '../lib/format'
+import { formatTableAmount, typeShort } from '../lib/format'
 import { highlight } from '../lib/search'
 import type { ProjectRecord, SearchQuery } from '../types'
 
@@ -43,8 +43,8 @@ export function ResultsTable({ results, query, onSelect }: ResultsTableProps) {
                   {record.통계목 && <span className="cell-tong">({record.통계목})</span>}
                 </span>
               </td>
-              <td className="col-num">{formatAmount(record.요구액)}</td>
-              <td className="col-num">{formatAmount(record.조정액)}</td>
+              <td className="col-num">{formatTableAmount(record.요구액)}</td>
+              <td className="col-num">{formatTableAmount(record.조정액)}</td>
               <td
                 className="col-dept"
                 dangerouslySetInnerHTML={{ __html: highlight(record.부서명, query.부서명) }}

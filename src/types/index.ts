@@ -1,3 +1,5 @@
+export type SearchableField = '부서명' | '사업명' | '사업개요' | '조건검색어'
+
 export interface ProjectRecord {
   type: string
   /** 예산 년도 (예: "25") */
@@ -22,6 +24,8 @@ export interface ProjectRecord {
   조정_시비: number | null
   /** 국비/시비 등 재원별 내역 존재 여부 (투자사업) */
   재원내역: boolean
+  /** @internal CSV 저장·검색 시 미리 만든 정규화 문자열 */
+  _norm?: Record<SearchableField, string>
 }
 
 export interface DatasetRecord {

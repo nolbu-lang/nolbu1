@@ -1,4 +1,5 @@
 import Papa from 'papaparse'
+import { attachSearchNormsAll } from './search'
 import type { ProjectRecord } from '../types'
 
 const clean = (v: unknown): string => String(v ?? '').replace(/\s+/g, ' ').trim()
@@ -111,6 +112,17 @@ function gyeongsangNameFromCell(c1raw: string): string {
 function sameBudgetRow(reqA: string, adjA: string, reqB: string, adjB: string): boolean {
   const norm = (v: string) => String(v ?? '').replace(/\s/g, '')
   return norm(reqA) === norm(reqB) && norm(adjA) === norm(adjB)
+}
+
+/** 검토내용·재원 표기 등 세부 행(별도 사업 아님) */
+function isGyeongsangDetailLine(c1: string): boolean {
+  const n = c1.trim()
+  if (!n) return true
+  if (/^[·•]/.test(n)) return true
+  if (/^★\s*국(?:비|고)보조/.test(n)) return true
+  if (/^\((?:국|시)\s*\d/.test(n)) return true
+  if (/^\(행안부/.test(n)) return true
+  return false
 }
 
 /** 정책사업(program)과 세부 항목명을 합쳐 사업명을 만든다. */
@@ -245,6 +257,13 @@ function parseGyeongsang(rows: Row[], meta: Meta): ProjectRecord[] {
         } else {
           program = c0
         }
+      }
+    } else if (c1 && rowHasBudget && isGyeongsangDetailLine(c1)) {
+      clearPendingC0()
+      if (state.cur) {
+        pushLine(state.cur._rv, c1raw)
+        pushLine(state.cur._rv, review)
+        pushLine(state.cur._kw, keyword)
       }
     } else if (c1 && rowHasBudget) {
       let name = gyeongsangNameFromCell(c1raw)
@@ -392,7 +411,7 @@ export async function parseCsvFile(file: File): Promise<ParseResult> {
     throw new Error('데이터에서 사업 항목을 찾지 못했습니다. 파일 내용을 확인해주세요.')
   }
 
-  return { type, records }
+  return { type, records: attachSearchNormsAll(records) }
 }
 
 function mostCommonColumnCount(rows: Row[]): number {

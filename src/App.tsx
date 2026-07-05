@@ -4,7 +4,7 @@ import { FileManager } from './components/FileManager'
 import { ResultsTable } from './components/ResultsTable'
 import { SearchForm } from './components/SearchForm'
 import { getAllRecords, getDatasetSummaries } from './lib/db'
-import { hasQuery, searchProjects } from './lib/search'
+import { attachSearchNormsAll, hasQuery, searchProjects } from './lib/search'
 import { EMPTY_QUERY } from './types'
 import type { DatasetSummary, ProjectRecord, SearchBoxKey, SearchQuery } from './types'
 import './App.css'
@@ -30,7 +30,7 @@ function App() {
       getAllRecords(),
     ])
     setDatasets(summaries)
-    setRecords(allRecords)
+    setRecords(attachSearchNormsAll(allRecords))
   }, [])
 
   useEffect(() => {
@@ -98,7 +98,7 @@ function App() {
                   ? '검색창에 입력 후 [조회]를 누르세요.'
                   : total === 0
                     ? '검색 결과가 없습니다.'
-                    : `검색 결과 ${total.toLocaleString()}건${
+                    : `검색결과 ${total.toLocaleString()}건, 단위 : 백만원${
                         total > RESULT_LIMIT ? ` (상위 ${RESULT_LIMIT.toLocaleString()}건 표시)` : ''
                       }`}
             </div>
