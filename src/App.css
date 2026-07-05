@@ -156,11 +156,14 @@
 /* ---------- table ---------- */
 .table-scroll {
   margin: 0 12px;
+  max-width: calc(100% - 24px);
   overflow-x: auto;
+  overflow-y: hidden;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--surface);
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
 }
 
 .results-table {
@@ -234,10 +237,16 @@
 }
 
 @media (max-width: 767px) {
+  .table-scroll {
+    display: block;
+    overflow-x: scroll;
+    overscroll-behavior-x: contain;
+  }
+
   .results-table {
-    table-layout: auto;
-    width: max-content;
-    min-width: 100%;
+    width: auto;
+    min-width: 560px;
+    table-layout: fixed;
     font-size: 0.82rem;
   }
 
@@ -247,20 +256,30 @@
   }
 
   .col-type {
-    width: 52px;
+    width: 54px;
+    min-width: 54px;
   }
 
   .col-name {
-    min-width: 120px;
+    width: 150px;
+    min-width: 150px;
+    word-break: break-all;
+  }
+
+  .col-name .cell-name {
+    font-size: 0.84rem;
+    line-height: 1.35;
   }
 
   .col-num {
-    width: 58px;
+    width: 56px;
+    min-width: 56px;
     font-size: 0.78rem;
   }
 
   .col-dept {
-    min-width: 72px;
+    width: 88px;
+    min-width: 88px;
   }
 
   .type-line {
@@ -270,11 +289,6 @@
   .badge {
     padding: 1px 5px;
     font-size: 0.68rem;
-  }
-
-  .cell-name {
-    font-size: 0.84rem;
-    line-height: 1.35;
   }
 
   .cell-tong {
