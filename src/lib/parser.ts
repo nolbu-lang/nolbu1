@@ -1,5 +1,4 @@
 import Papa from 'papaparse'
-import { extractFundingFromReview } from './funding'
 import type { ProjectRecord } from '../types'
 
 const clean = (v: unknown): string => String(v ?? '').replace(/\s+/g, ' ').trim()
@@ -109,15 +108,6 @@ function parseGyeongsang(rows: Row[], meta: Meta): ProjectRecord[] {
     cur.사업개요 = cur._ov.join('\n')
     cur.검토내용 = collapseBlankLines(cur._rv.join('\n'))
     cur.조건검색어 = cur._kw.join(' ').replace(/\s+/g, ' ').trim()
-
-    const funding = extractFundingFromReview(cur.검토내용, cur.요구액, cur.조정액)
-    if (funding.재원내역) {
-      cur.요구_국비 = funding.요구_국비
-      cur.요구_시비 = funding.요구_시비
-      cur.조정_국비 = funding.조정_국비
-      cur.조정_시비 = funding.조정_시비
-      cur.재원내역 = true
-    }
 
     const { _ov, _rv, _kw, ...record } = cur
     void _ov
