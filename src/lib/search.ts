@@ -28,6 +28,15 @@ function normalizedField(record: ProjectRecord, field: SearchableField): string 
   return record._norm?.[field] ?? normalize(String(record[field] ?? ''))
 }
 
+/** 사업명 오름차순 → 같은 사업명 내 조정액 내림차순 */
+export function sortSearchResults(records: ProjectRecord[]): ProjectRecord[] {
+  return [...records].sort((a, b) => {
+    const byName = a.사업명.localeCompare(b.사업명, 'ko')
+    if (byName !== 0) return byName
+    return (b.조정액 ?? -Infinity) - (a.조정액 ?? -Infinity)
+  })
+}
+
 export function hasQuery(query: SearchQuery): boolean {
   return SEARCH_BOXES.some((box) => query[box.key].trim().length > 0)
 }
@@ -59,13 +68,12 @@ export function searchProjects(
     }
     if (matched) {
       total += 1
-      if (results.length < limit) {
-        results.push(record)
-      }
+      results.push(record)
     }
   }
 
-  return { results, total }
+  const sorted = sortSearchResults(results)
+  return { results: sorted.slice(0, limit), total }
 }
 
 const escapeHtml = (text: string) =>

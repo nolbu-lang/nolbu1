@@ -58,5 +58,9 @@ export async function getDatasetSummaries(): Promise<DatasetSummary[]> {
 export async function getAllRecords(): Promise<ProjectRecord[]> {
   const db = await getDb()
   const datasets = await db.getAllFromIndex('datasets', 'by-uploadedAt')
-  return datasets.flatMap((dataset) => dataset.records)
+  return datasets.flatMap((dataset) =>
+    dataset.records.map((record) =>
+      record.파일명 ? record : { ...record, 파일명: dataset.fileName },
+    ),
+  )
 }

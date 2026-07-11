@@ -76,6 +76,7 @@ type Row = string[]
 function baseRecord(meta: Meta): ProjectRecord {
   return {
     type: meta.사업유형 === '투자' ? '투자사업' : '경상사업',
+    파일명: '',
     년도: meta.년도,
     차수: meta.차수,
     사업유형: meta.사업유형,
@@ -411,7 +412,8 @@ export async function parseCsvFile(file: File): Promise<ParseResult> {
     throw new Error('데이터에서 사업 항목을 찾지 못했습니다. 파일 내용을 확인해주세요.')
   }
 
-  return { type, records: attachSearchNormsAll(records) }
+  const withFileName = records.map((record) => ({ ...record, 파일명: fileName }))
+  return { type, records: attachSearchNormsAll(withFileName) }
 }
 
 function mostCommonColumnCount(rows: Row[]): number {
