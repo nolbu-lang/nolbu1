@@ -120,10 +120,20 @@ function isGyeongsangDetailLine(c1: string): boolean {
   const n = c1.trim()
   if (!n) return true
   if (/^[·•]/.test(n)) return true
-  if (/^★\s*국(?:비|고)보조/.test(n)) return true
+  // ★국고보조사업 / 국고보조사업(…) 은 재원별 세부사업(별도 항목)
+  if (/^★\s*국(?:비|고)보조사업/.test(n)) return false
+  if (/^국고보조사업\s*[\(（]/.test(n)) return false
+  if (/^★\s*국(?:비|고)보조\s*[\(（]/.test(n)) return true
   if (/^\((?:국|시)\s*\d/.test(n)) return true
   if (/^\(행안부/.test(n)) return true
+  if (/^★/.test(n)) return true
   return false
+}
+
+function resolveGyeongsangTong(tong: string, programTong: string): { 통계목: string; programTong: string } {
+  if (tong) return { 통계목: tong, programTong: tong }
+  if (programTong) return { 통계목: programTong, programTong }
+  return { 통계목: '', programTong }
 }
 
 /** 정책사업(program)과 세부 항목명을 합쳐 사업명을 만든다. */
@@ -145,6 +155,7 @@ function parseGyeongsang(rows: Row[], meta: Meta): ProjectRecord[] {
   let 상위부서 = ''
   let 하위부서 = ''
   let program = ''
+  let programTong = ''
   let pendingC0: {
     name: string
     req: string
@@ -155,6 +166,13 @@ function parseGyeongsang(rows: Row[], meta: Meta): ProjectRecord[] {
   type GyeongsangCur = ProjectRecord & { _ov: string[]; _rv: string[]; _kw: string[] }
   const state: { cur: GyeongsangCur | null } = { cur: null }
 
+  const setProgram = (name: string) => {
+    if (program !== name) {
+      program = name
+      programTong = ''
+    }
+  }
+
   const flushPendingC0 = () => {
     if (!pendingC0) return
     records.push({
@@ -162,6 +180,7 @@ function parseGyeongsang(rows: Row[], meta: Meta): ProjectRecord[] {
       부서명: 하위부서 || 상위부서,
       정책사업: program,
       사업명: pendingC0.name,
+      통계목: programTong,
       요구액: pendingC0.요구액,
       조정액: pendingC0.조정액,
     })
@@ -191,12 +210,14 @@ function parseGyeongsang(rows: Row[], meta: Meta): ProjectRecord[] {
     keyword: string,
   ) => {
     flush()
+    const resolved = resolveGyeongsangTong(tong, programTong)
+    programTong = resolved.programTong
     state.cur = {
       ...baseRecord(meta),
       부서명: 하위부서 || 상위부서,
       정책사업: program,
       사업명: name,
-      통계목: tong,
+      통계목: resolved.통계목,
       요구액: parseAmount(req, true),
       조정액: parseAmount(adj, true),
       _ov: [],
@@ -239,7 +260,7 @@ function parseGyeongsang(rows: Row[], meta: Meta): ProjectRecord[] {
             하위부서 = ''
           }
         } else {
-          program = c0
+          setProgram(c0)
           pendingC0 = {
             name: c0,
             req,
@@ -256,7 +277,7 @@ function parseGyeongsang(rows: Row[], meta: Meta): ProjectRecord[] {
           상위부서 = c0
           하위부서 = ''
         } else {
-          program = c0
+          setProgram(c0)
         }
       }
     } else if (c1 && rowHasBudget && isGyeongsangDetailLine(c1)) {
