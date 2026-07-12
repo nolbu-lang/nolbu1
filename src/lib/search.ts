@@ -28,9 +28,19 @@ function normalizedField(record: ProjectRecord, field: SearchableField): string 
   return record._norm?.[field] ?? normalize(String(record[field] ?? ''))
 }
 
-/** 사업명 오름차순 → 같은 사업명 내 조정액 내림차순 */
+/** 사업명별로 묶고, 그룹은 최대 조정액 큰 순 → 그룹 안에서는 조정액 큰 순 */
 export function sortSearchResults(records: ProjectRecord[]): ProjectRecord[] {
+  const groupMax = new Map<string, number>()
+  for (const record of records) {
+    const adj = record.조정액 ?? -Infinity
+    const prev = groupMax.get(record.사업명)
+    if (prev === undefined || adj > prev) groupMax.set(record.사업명, adj)
+  }
+
   return [...records].sort((a, b) => {
+    const maxA = groupMax.get(a.사업명) ?? -Infinity
+    const maxB = groupMax.get(b.사업명) ?? -Infinity
+    if (maxB !== maxA) return maxB - maxA
     const byName = a.사업명.localeCompare(b.사업명, 'ko')
     if (byName !== 0) return byName
     return (b.조정액 ?? -Infinity) - (a.조정액 ?? -Infinity)
