@@ -18,13 +18,19 @@ export interface ProjectRecord {
   조건검색어: string
   통계목: string
   /** 금액은 모두 백만원 단위 정수. 값이 없으면 null */
+  기정액: number | null
+  총사업비: number | null
   요구액: number | null
   조정액: number | null
+  기정_국비: number | null
+  기정_시비: number | null
+  총사업비_국비: number | null
+  총사업비_시비: number | null
   요구_국비: number | null
   요구_시비: number | null
   조정_국비: number | null
   조정_시비: number | null
-  /** 국비/시비 등 재원별 내역 존재 여부 (투자사업) */
+  /** 국비/시비 등 재원별 내역 존재 여부 */
   재원내역: boolean
   /** @internal CSV 저장·검색 시 미리 만든 정규화 문자열 */
   _norm?: Record<SearchableField, string>

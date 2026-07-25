@@ -10,7 +10,7 @@ interface SimsaDB extends DBSchema {
 }
 
 const DB_NAME = 'simsa-joseo-db'
-const DB_VERSION = 4
+const DB_VERSION = 5
 
 let dbPromise: Promise<IDBPDatabase<SimsaDB>> | null = null
 

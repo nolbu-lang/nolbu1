@@ -42,6 +42,20 @@ function DetailTable({
   )
 }
 
+function amountRow(
+  label: string,
+  total: number | null,
+  국비: number | null,
+  시비: number | null,
+  hasSource: boolean,
+): DetailRow {
+  return {
+    label,
+    text: formatAmountWithSource(total, 국비, 시비, hasSource),
+    compact: true,
+  }
+}
+
 export function DetailModal({ record, query, onClose }: DetailModalProps) {
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -52,6 +66,7 @@ export function DetailModal({ record, query, onClose }: DetailModalProps) {
   }, [onClose])
 
   const title = record.통계목 ? `${record.사업명}(${record.통계목})` : record.사업명
+  const isInvest = record.사업유형 === '투자' || record.type === '투자사업'
 
   const summaryRows: DetailRow[] = [
     {
@@ -61,32 +76,32 @@ export function DetailModal({ record, query, onClose }: DetailModalProps) {
     },
   ]
 
-  if (record.정책사업) {
-    summaryRows.push({ label: '정책사업', text: record.정책사업, compact: true })
+  if (isInvest) {
+    summaryRows.push(
+      amountRow(
+        '총사업비',
+        record.총사업비,
+        record.총사업비_국비,
+        record.총사업비_시비,
+        record.재원내역,
+      ),
+      amountRow('요구액', record.요구액, record.요구_국비, record.요구_시비, record.재원내역),
+      amountRow('조정액', record.조정액, record.조정_국비, record.조정_시비, record.재원내역),
+    )
+  } else {
+    // 경상: 정책사업 미표시. 기정액 하위 국·시 재원 표기를 요구액·조정액에도 동일 적용
+    const hasGijeongSource =
+      record.재원내역 && (record.기정_국비 != null || record.기정_시비 != null)
+    const showReqSource =
+      hasGijeongSource && (record.요구_국비 != null || record.요구_시비 != null)
+    const showAdjSource =
+      hasGijeongSource && (record.조정_국비 != null || record.조정_시비 != null)
+    summaryRows.push(
+      amountRow('기정액', record.기정액, record.기정_국비, record.기정_시비, hasGijeongSource),
+      amountRow('요구액', record.요구액, record.요구_국비, record.요구_시비, showReqSource),
+      amountRow('조정액', record.조정액, record.조정_국비, record.조정_시비, showAdjSource),
+    )
   }
-
-  summaryRows.push(
-    {
-      label: '요구액',
-      text: formatAmountWithSource(
-        record.요구액,
-        record.요구_국비,
-        record.요구_시비,
-        record.재원내역,
-      ),
-      compact: true,
-    },
-    {
-      label: '조정액',
-      text: formatAmountWithSource(
-        record.조정액,
-        record.조정_국비,
-        record.조정_시비,
-        record.재원내역,
-      ),
-      compact: true,
-    },
-  )
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -98,7 +113,7 @@ export function DetailModal({ record, query, onClose }: DetailModalProps) {
         onClick={(event) => event.stopPropagation()}
       >
         <header className="modal__header">
-          <span className={`badge badge--${record.사업유형 === '투자' ? 'invest' : 'operate'}`}>
+          <span className={`badge badge--${isInvest ? 'invest' : 'operate'}`}>
             {typeLabel(record)}
           </span>
           <button type="button" className="modal__close" aria-label="닫기" onClick={onClose}>

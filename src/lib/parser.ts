@@ -87,14 +87,28 @@ function baseRecord(meta: Meta): ProjectRecord {
     검토내용: '',
     조건검색어: '',
     통계목: '',
+    기정액: null,
+    총사업비: null,
     요구액: null,
     조정액: null,
+    기정_국비: null,
+    기정_시비: null,
+    총사업비_국비: null,
+    총사업비_시비: null,
     요구_국비: null,
     요구_시비: null,
     조정_국비: null,
     조정_시비: null,
     재원내역: false,
   }
+}
+
+/** 경상 CSV 2열(국/시) 재원 표기 */
+function gyeongsangFundingSource(c2: string): '국' | '시' | null {
+  const t = c2.replace(/\s+/g, '')
+  if (t === '국' || t === '국비') return '국'
+  if (t === '시' || t === '시비') return '시'
+  return null
 }
 
 // ---------- 경상사업 (10열, 단위: 천원) ----------
@@ -160,6 +174,8 @@ function parseGyeongsang(rows: Row[], meta: Meta): ProjectRecord[] {
     name: string
     req: string
     adj: string
+    기정Raw: unknown
+    기정액: number | null
     요구액: number | null
     조정액: number | null
   } | null = null
@@ -173,6 +189,28 @@ function parseGyeongsang(rows: Row[], meta: Meta): ProjectRecord[] {
     }
   }
 
+  const applyFunding = (
+    cur: GyeongsangCur,
+    source: '국' | '시',
+    기정Raw: unknown,
+    reqRaw: unknown,
+    adjRaw: unknown,
+  ) => {
+    const 기정 = parseAmount(기정Raw, true)
+    const 요구 = parseAmount(reqRaw, true)
+    const 조정 = parseAmount(adjRaw, true)
+    if (source === '국') {
+      if (기정 != null) cur.기정_국비 = (cur.기정_국비 ?? 0) + 기정
+      if (요구 != null) cur.요구_국비 = (cur.요구_국비 ?? 0) + 요구
+      if (조정 != null) cur.조정_국비 = (cur.조정_국비 ?? 0) + 조정
+    } else {
+      if (기정 != null) cur.기정_시비 = (cur.기정_시비 ?? 0) + 기정
+      if (요구 != null) cur.요구_시비 = (cur.요구_시비 ?? 0) + 요구
+      if (조정 != null) cur.조정_시비 = (cur.조정_시비 ?? 0) + 조정
+    }
+    cur.재원내역 = true
+  }
+
   const flushPendingC0 = () => {
     if (!pendingC0) return
     records.push({
@@ -181,6 +219,7 @@ function parseGyeongsang(rows: Row[], meta: Meta): ProjectRecord[] {
       정책사업: program,
       사업명: pendingC0.name,
       통계목: programTong,
+      기정액: pendingC0.기정액,
       요구액: pendingC0.요구액,
       조정액: pendingC0.조정액,
     })
@@ -203,6 +242,7 @@ function parseGyeongsang(rows: Row[], meta: Meta): ProjectRecord[] {
 
   const beginProject = (
     name: string,
+    기정Raw: unknown,
     req: string,
     adj: string,
     tong: string,
@@ -218,6 +258,7 @@ function parseGyeongsang(rows: Row[], meta: Meta): ProjectRecord[] {
       정책사업: program,
       사업명: name,
       통계목: resolved.통계목,
+      기정액: parseAmount(기정Raw, true),
       요구액: parseAmount(req, true),
       조정액: parseAmount(adj, true),
       _ov: [],
@@ -238,12 +279,15 @@ function parseGyeongsang(rows: Row[], meta: Meta): ProjectRecord[] {
     const c0 = clean(r[0])
     const c1raw = String(r[1] ?? '').trim()
     const c1 = clean(r[1])
+    const c2 = clean(r[2])
+    const funding = gyeongsangFundingSource(c2)
+    const 기정Raw = r[3]
     const req = String(r[5] ?? '')
     const adj = String(r[6] ?? '')
     const review = String(r[7] ?? '').trim()
     const tong = clean(r[8])
     const keyword = String(r[9] ?? '').trim()
-    const rowHasBudget = isNumeric(req) || isNumeric(adj) || isNumeric(r[3])
+    const rowHasBudget = isNumeric(req) || isNumeric(adj) || isNumeric(기정Raw)
 
     if (c0 === '합계') continue
 
@@ -265,6 +309,8 @@ function parseGyeongsang(rows: Row[], meta: Meta): ProjectRecord[] {
             name: c0,
             req,
             adj,
+            기정Raw,
+            기정액: parseAmount(기정Raw, true),
             요구액: parseAmount(req, true),
             조정액: parseAmount(adj, true),
           }
@@ -280,6 +326,13 @@ function parseGyeongsang(rows: Row[], meta: Meta): ProjectRecord[] {
           setProgram(c0)
         }
       }
+    } else if (state.cur && funding && rowHasBudget) {
+      // 기정액·요구액·조정액 하위 국/시 재원 행
+      clearPendingC0()
+      applyFunding(state.cur, funding, 기정Raw, req, adj)
+      if (c1raw) pushLine(state.cur._rv, c1raw)
+      pushLine(state.cur._rv, review)
+      pushLine(state.cur._kw, keyword)
     } else if (c1 && rowHasBudget && isGyeongsangDetailLine(c1)) {
       clearPendingC0()
       if (state.cur) {
@@ -289,14 +342,19 @@ function parseGyeongsang(rows: Row[], meta: Meta): ProjectRecord[] {
       }
     } else if (c1 && rowHasBudget) {
       let name = gyeongsangNameFromCell(c1raw)
+      let 기정ForProject: unknown = 기정Raw
       if (pendingC0 && sameBudgetRow(pendingC0.req, pendingC0.adj, req, adj)) {
         name = pendingC0.name
+        기정ForProject = pendingC0.기정Raw
         clearPendingC0()
       } else {
         clearPendingC0()
         name = buildGyeongsangName(program, name)
       }
-      beginProject(name, req, adj, tong, review, keyword)
+      beginProject(name, 기정ForProject, req, adj, tong, review, keyword)
+      if (state.cur && funding) {
+        applyFunding(state.cur, funding, 기정Raw, req, adj)
+      }
     } else if (state.cur) {
       if (c1raw && c1 !== 상위부서 && c1 !== 하위부서 && c1 !== program) {
         pushLine(state.cur._ov, c1raw)
@@ -367,6 +425,7 @@ function parseTuja(rows: Row[], meta: Meta): ProjectRecord[] {
         ...baseRecord(meta),
         사업명: c2raw.split('\n')[0].trim(),
         통계목: tong,
+        총사업비: parseAmount(String(r[5] ?? ''), false),
         요구액: parseAmount(col8, false),
         조정액: parseAmount(col9, false),
         재원내역: true,
@@ -381,9 +440,11 @@ function parseTuja(rows: Row[], meta: Meta): ProjectRecord[] {
 
     if (cur) {
       if (c4 === '시비') {
+        cur.총사업비_시비 = parseAmount(String(r[5] ?? ''), false)
         cur.요구_시비 = parseAmount(col8, false)
         cur.조정_시비 = parseAmount(col9, false)
       } else if (c4 === '국비') {
+        cur.총사업비_국비 = parseAmount(String(r[5] ?? ''), false)
         cur.요구_국비 = parseAmount(col8, false)
         cur.조정_국비 = parseAmount(col9, false)
       }
